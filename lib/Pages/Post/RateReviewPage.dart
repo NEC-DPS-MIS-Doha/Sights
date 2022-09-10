@@ -1,54 +1,97 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:avatars/avatars.dart';
-import 'package:rate_in_stars/rate_in_stars.dart';
-import 'package:flutter_star/flutter_star.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_rating_stars/flutter_rating_stars.dart';
 
-void showRateReviewSheet(context, widget) {
+void showRateReviewSheet(context, widget, location) {
+  FirebaseFirestore db = FirebaseFirestore.instance;
+
   showModalBottomSheet(
-    context: context,
-    builder: (context) {
-      return Padding(
-          padding: const EdgeInsets.all(17.5),
-          child: Wrap(
-            children: [
-              const Text("Post Review",
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 50),
-              CustomRating(
-                  max: 6,
-                  score: 3.0,
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        double rating = 5;
+        bool buttonLoading = false;
+        var reviewFieldTextController = TextEditingController();
+        return StatefulBuilder(
+            builder: (BuildContext context, StateSetter setState) {
+          return Padding(
+              padding: const EdgeInsets.all(17.5),
+              child: Wrap(
+                children: [
+                  const Text("Post Review",
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 50),
+                  RatingStars(
+                    value: rating,
+                    onValueChanged: (v) {
+                      debugPrint(v.toString());
+                      setState(() {
+                        rating = v;
+                      });
+                    },
+                    starBuilder: (index, color) => Icon(
+                      Icons.star_rate_rounded,
+                      color: color,
+                      size: 50,
+                    ),
+                    starCount: 5,
+                    starSize: 50,
+                  ),
+                  const SizedBox(
+                    height: 75,
+                  ),
+                  TextField(
+                    decoration: const InputDecoration(labelText: 'Description'),
+                    minLines: 5,
+                    maxLines: 10,
+                    textAlignVertical: TextAlignVertical.top,
+                    controller: reviewFieldTextController,
+                  ),
+                  const SizedBox(
+                    height: 200,
+                  ),
+                  ElevatedButton.icon(
+                      onPressed: () {
+                        if (buttonLoading == true) return;
+                        setState(() {
+                          buttonLoading = true;
+                        });
+                        var loc = location['loc'];
 
-                  star: Star(
-
-                      num: 12,
-                      fillColor: Colors.orangeAccent,
-                      fat: 0.6,
-                      emptyColor: Colors.grey.withAlpha(88)),
-                  onRating: (s) {
-                    print(s);
-                  }),
-              const SizedBox(
-                height: 50,
-              ),
-              TextField(
-                decoration: const InputDecoration(labelText: 'Description'),
-                minLines: 5,
-                maxLines: 10,
-                textAlignVertical: TextAlignVertical.top,
-              ),
-              SizedBox(
-                height: 200,
-              ),
-              ElevatedButton.icon(
-                  onPressed: () {},
-                  icon: Icon(Icons.add),
-                  label: Text('Post'),
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(50), // NEW
-                  ))
-            ],
-          ));
-    },
-  );
+                        final reviewData = {
+                          'content': {
+                            'rating': rating,
+                            'review': reviewFieldTextController.text
+                          },
+                          "locData": location,
+                          "uid": widget.user?.uid,
+                          'formatted': location['formatted'],
+                          "latLong": {
+                            'lat': loc.latitude,
+                            'long': loc.longitude
+                          }
+                        };
+                        location.remove('loc');
+                        db.collection("reviews").add(reviewData);
+                        db
+                            .collection("locationData")
+                            .doc(location['geohash'])
+                            .set(location);
+                        Navigator.pop(context);
+                      },
+                      icon: !buttonLoading
+                          ? const Icon(Icons.add)
+                          : const CircularProgressIndicator(
+                              color: Colors.black54),
+                      label: Text(!buttonLoading ? 'Post' : ''),
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(50),
+                      ))
+                ],
+              ));
+        });
+      });
 }

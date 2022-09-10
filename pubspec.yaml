@@ -44,7 +44,8 @@ dependencies:
   dio: ^4.0.6
   firebase_auth: ^3.7.0
   rate_in_stars: ^0.0.3
-  flutter_star: ^1.0.2
+  flutter_rating_stars: ^1.0.3+4
+  cloud_firestore: ^3.4.7
 
 
 dev_dependencies:

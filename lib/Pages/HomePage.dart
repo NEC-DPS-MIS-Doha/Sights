@@ -6,12 +6,19 @@ import 'dart:convert';
 import 'package:location/location.dart';
 import './Post/Article.dart';
 import './Post/RateReviewPage.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../Components/topReview.dart';
 
 Map location = {'formatted': 'Loading Location Data...'};
 
+FirebaseFirestore db = FirebaseFirestore.instance;
+
 class HomePage extends StatefulWidget {
-  const HomePage({Key? key, required this.title, required this.user})
-      : super(key: key);
+  const HomePage({
+    Key? key,
+    required this.title,
+    required this.user,
+  }) : super(key: key);
 
   final String title;
   final User? user;
@@ -21,10 +28,20 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  String greeting = '';
 
   @override
   void initState() {
     super.initState();
+    int hour = DateTime.now().hour;
+    if (hour > 18) {
+      greeting = 'Evening';
+    } else if (hour > 12) {
+      greeting = 'Afternoon';
+    } else {
+      greeting = 'Morning';
+    }
+    setState(() {});
     getLocation().then((value) {
       if (value['error'] == 'denied') {
         location = {'formatted': 'Please grant permission'};
@@ -34,101 +51,163 @@ class _HomePageState extends State<HomePage> {
         location = value;
       });
     });
+    // Create a new user with a first and last name
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = <String, dynamic>{
+      "lastSignedIn": DateTime.now().millisecondsSinceEpoch,
+    };
+    db.collection("userInfo").doc(widget.user?.uid).set({
+      'name': widget.user?.displayName,
+      'email': widget.user?.email,
+      'uid': widget.user?.uid,
+      'photoURL': widget.user?.photoURL ?? '',
+    });
+
     String? username =
         (widget.user?.displayName == '' || widget.user?.displayName == null)
             ? 'User'
             : widget.user?.displayName;
     debugPrint(widget.user.toString());
 
-    return Scaffold(
-        appBar: AppBar(
-          title: Text(widget.title),
-          actions: [
-            Transform.scale(
-              scale: .70,
-              child: FittedBox(
-                fit: BoxFit.cover,
-                child: InkWell(
-                    borderRadius: BorderRadius.circular(42),
-                    onTap: () {},
-                    child: Avatar(
-                      name: username,
-                    )),
+    return FutureBuilder<Map>(
+        future: topReview(location), // function where you call your api
+        builder: (BuildContext context, AsyncSnapshot<Map> snapshot) {
+          return Scaffold(
+              appBar: AppBar(
+                title: Text(widget.title),
+                actions: [
+                  Transform.scale(
+                    scale: .70,
+                    child: FittedBox(
+                      fit: BoxFit.cover,
+                      child: InkWell(
+                          borderRadius: BorderRadius.circular(42),
+                          onTap: () {},
+                          child: Avatar(
+                            name: username,
+                          )),
+                    ),
+                  )
+                ],
               ),
-            )
-          ],
-        ),
-        body: Padding(
-            padding: const EdgeInsets.all(15),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Good Evening, $username!",
-                    style: const TextStyle(
-                        fontSize: 22.5, fontWeight: FontWeight.w700)),
-                const SizedBox(
-                  height: 10,
+              body: Padding(
+                  padding: const EdgeInsets.all(15),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Good $greeting, $username!",
+                          style: const TextStyle(
+                              fontSize: 22.5, fontWeight: FontWeight.w700)),
+                      const SizedBox(
+                        height: 10,
+                      ),
+                      Opacity(
+                          opacity: 0.75,
+                          child: Flex(
+                            direction: Axis.horizontal,
+                            children: [
+                              const Icon(Icons.location_on_rounded),
+                              const SizedBox(
+                                width: 5,
+                              ),
+                              Expanded(
+                                  child: Text("${location['formatted']}",
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w100,
+                                        overflow: TextOverflow.ellipsis,
+                                      )))
+                            ],
+                          )),
+                      const SizedBox(
+                        height: 15,
+                      ),
+                      const Text("Reviews",
+                          style: const TextStyle(
+                              fontSize: 18.5, fontWeight: FontWeight.w700)),
+                      if (snapshot.data?['content'] != null &&
+                          snapshot.hasData) ...[
+                        Card(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              ListTile(
+                                  leading: SizedBox(
+                                    width: 50,
+                                    height: 50,
+                                    child: FittedBox(
+                                      fit: BoxFit.cover,
+                                      child: InkWell(
+                                          borderRadius:
+                                              BorderRadius.circular(42),
+                                          onTap: () {},
+                                          child: Avatar(
+                                            name: snapshot.data!['user']![
+                                                    'username'] ??
+                                                'Anonymous',
+                                          )),
+                                    ),
+                                  ),
+                                  title: Row(children: [
+                                    Text(snapshot.data!['user']!['username'] ??
+                                        'Anonymous'),
+                                    Spacer(),
+                                    Text(snapshot.data!['content']!['rating']
+                                        .toString()),
+                                  ]),
+                                  subtitle: Text(
+                                      snapshot.data!['content']!['review'])),
+                            ],
+                          ),
+                        )
+                      ] else ...[
+                        const Center(
+                          child: Text("No reviews yet"),
+                        )
+                      ]
+                    ],
+                  )),
+              floatingActionButtonLocation:
+                  FloatingActionButtonLocation.centerDocked,
+              floatingActionButton: FloatingActionButton(
+                onPressed: () {
+                  showPostOptions(context, widget);
+                },
+                tooltip: 'Post',
+                child: const Icon(Icons.add),
+              ),
+              bottomNavigationBar: BottomAppBar(
+                shape: const CircularNotchedRectangle(),
+                child: Row(
+                  // mainAxisSize: MainAxisSize.max,
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: <Widget>[
+                    IconButton(
+                      icon: const Icon(Icons.account_circle_rounded),
+                      onPressed: () {},
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.notifications_rounded),
+                      onPressed: () {},
+                    ),
+                    const SizedBox(
+                      width: 75,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.search),
+                      onPressed: () {},
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.menu_rounded),
+                      onPressed: () {},
+                    ),
+                  ],
                 ),
-                Opacity(
-                    opacity: 0.75,
-                    child: Flex(
-                      direction: Axis.horizontal,
-                      children: [
-                        const Icon(Icons.location_on_rounded),
-                        const SizedBox(
-                          width: 5,
-                        ),
-                        Expanded(
-                            child: Text("${location['formatted']}",
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w100,
-                                  overflow: TextOverflow.ellipsis,
-                                )))
-                      ],
-                    )),
-              ],
-            )),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-        floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            showPostOptions(context, widget);
-          },
-          tooltip: 'Post',
-          child: const Icon(Icons.add),
-        ),
-        bottomNavigationBar: BottomAppBar(
-          shape: const CircularNotchedRectangle(),
-          child: Row(
-            // mainAxisSize: MainAxisSize.max,
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: <Widget>[
-              IconButton(
-                icon: const Icon(Icons.account_circle_rounded),
-                onPressed: () {},
-              ),
-              IconButton(
-                icon: const Icon(Icons.favorite_rounded),
-                onPressed: () {},
-              ),
-              const SizedBox(
-                width: 75,
-              ),
-              IconButton(
-                icon: const Icon(Icons.search),
-                onPressed: () {},
-              ),
-              IconButton(
-                icon: const Icon(Icons.menu_rounded),
-                onPressed: () {},
-              ),
-            ],
-          ),
-        ));
+              ));
+        });
   }
 }
 
@@ -306,7 +385,9 @@ Future<Map> getLocation() async {
     var response = await Dio().get(
         'https://api.opencagedata.com/geocode/v1/json?q=${'${loc.latitude},'} ${loc.longitude}&pretty=1&key=05df1a30fe6f4243be7362c6468dada9');
     debugPrint('${'${loc.latitude},'} ${loc.longitude}');
-    return jsonDecode(response.toString())['results'][0];
+    var data = jsonDecode(response.toString())['results'][0];
+    data['loc'] = loc;
+    return data;
   } catch (e) {
     debugPrint(e.toString());
   }
@@ -321,6 +402,7 @@ void showPostOptions(context, widget) {
           children: [
             InkWell(
                 onTap: () {
+                  Navigator.pop(context);
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -342,7 +424,8 @@ void showPostOptions(context, widget) {
                 )),
             InkWell(
                 onTap: () {
-                  showRateReviewSheet(context, widget);
+                  Navigator.pop(context);
+                  showRateReviewSheet(context, widget, location);
                 },
                 child: const ListTile(
                   leading: Icon(Icons.star_rate_rounded),

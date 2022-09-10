@@ -6,6 +6,7 @@ import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutterfire_ui/auth.dart';
 import './Pages/HomePage.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -62,6 +63,7 @@ class AuthGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
@@ -72,10 +74,11 @@ class AuthGate extends StatelessWidget {
             if (!snapshot.hasData) {
               return const SignInScreen(providerConfigs: [
                 EmailProviderConfiguration(),
-                GoogleProviderConfiguration(
-                  clientId:
-                      '662464051834-0rn8ose5s879dbjt2vftp3ugrdfso33q.apps.googleusercontent.com',
-                ),
+                // TODO: Fix google sign in
+                // GoogleProviderConfiguration(
+                //   clientId:
+                //       '662464051834-0rn8ose5s879dbjt2vftp3ugrdfso33q.apps.googleusercontent.com',
+                // ),
               ]);
             }
 
@@ -87,6 +90,7 @@ class AuthGate extends StatelessWidget {
     );
   }
 }
+
 void showPostOptions(context) {
   showModalBottomSheet(
       context: context,
